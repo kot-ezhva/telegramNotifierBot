@@ -2,25 +2,32 @@
 
 class Telegram
 {
-    private $botApiUri = "https://api.telegram.org/bot";
-    private $fullBotApiUrl;
+    public $botApiUri = "https://api.telegram.org/bot";
+    public $chatIdFilename = __DIR__ . DIRECTORY_SEPARATOR . "chatIds.txt";
     public $token;
     public $webhookUrl;
     public $password;
+    private $fullBotApiUrl;
 
     public function init()
     {
         $this->fullBotApiUrl = $this->botApiUri . $this->token;
+
+        foreach ($this as $key => $value) {
+            if(!$value) {
+                $this->throwError("Не указано свойство " . $key);
+            }
+        }
     }
 
     public function sendMessage($message, $dialogIds = [])
     {
         if($this->webhookStatus()) {
-            $method = "/sendMessage";
+            $method = "/sendmessage";
 
             if(empty($dialogIds)) {
-                if(file_exists(__DIR__ . "/chatIds.txt")) {
-                    $dialogIds = file_get_contents(__DIR__ . "/chatIds.txt");
+                if(file_exists($this->chatIdFilename)) {
+                    $dialogIds = file_get_contents($this->chatIdFilename);
                     $dialogIds = explode(",", $dialogIds);
                 }
             }
@@ -40,6 +47,27 @@ class Telegram
         } else {
             if($this->setWebhook()) {
                 $this->sendMessage($message, $dialogIds);
+            }
+        }
+    }
+
+    public function webhookHandler()
+    {
+        $content = file_get_contents("php://input");
+        $update = json_decode($content);
+        $message = $update->message;
+        $chatId = $message->chat->id;
+        $text = $message->text;
+
+        if(!$this->checkChatId($chatId)){
+            if($text !== $this->password) {
+                $this->sendMessage("Неверный пароль. Пробуйте еще :-)", [$chatId]);
+            } else {
+                if(!$this->saveChatId($chatId)) {
+                    $this->sendMessage("Проблема с правами на файл. Обратитесь к администратору", [$chatId]);
+                } else {
+                    $this->sendMessage("Вы успешно подписались на обновления сайта " . $_SERVER["HTTP_HOST"], [$chatId]);
+                }
             }
         }
     }
@@ -75,7 +103,7 @@ class Telegram
     private function webhookStatus()
     {
         $status = false;
-        $infoUrl = "/getWebhookInfo";
+        $infoUrl = "/getwebhookinfo";
 
         $ch = curl_init($this->fullBotApiUrl . $infoUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
@@ -94,33 +122,12 @@ class Telegram
 
         return $status;
     }
-
-    public function webhookHandler()
-    {
-        $content = file_get_contents("php://input");
-        $update = json_decode($content);
-        $message = $update->message;
-        $chatId = $message->chat->id;
-        $text = $message->text;
-
-        if(!$this->checkChatId($chatId)){
-            if($text !== $this->password) {
-                $this->sendMessage("Неверный пароль. Пробуйте еще :-)", [$chatId]);
-            } else {
-                if(!$this->saveChatId($chatId)) {
-                    $this->sendMessage("Проблема с правами на файл. Обратитесь к администратору", [$chatId]);
-                } else {
-                    $this->sendMessage("Вы успешно подписались на обновления сайта " . $_SERVER["HTTP_HOST"], [$chatId]);
-                }
-            }
-        }
-    }
-
+    
     private function checkChatId($id)
     {
         $status = false;
-        if(file_exists(__DIR__ . "/chatIds.txt")) {
-            $savedIds = file_get_contents(__DIR__ . "/chatIds.txt");
+        if(file_exists($this->chatIdFilename)) {
+            $savedIds = file_get_contents($this->chatIdFilename);
             $savedIds = explode(",", $savedIds);
             $status = in_array($id, $savedIds);
         }
@@ -130,14 +137,19 @@ class Telegram
 
     private function saveChatId($id)
     {
-        if(file_exists(__DIR__ . "/chatIds.txt")) {
-            $savedIds = file_get_contents(__DIR__ . "/chatIds.txt");
+        if(file_exists($this->chatIdFilename)) {
+            $savedIds = file_get_contents($this->chatIdFilename);
             $savedIds = explode(",", $savedIds);
             array_push($savedIds, $id);
         } else {
             $savedIds = [$id];
         }
 
-        return file_put_contents(__DIR__ . "/chatIds.txt", implode(",", $savedIds));
+        return file_put_contents($this->chatIdFilename, implode(",", $savedIds));
+    }
+
+    private function throwError($message = "")
+    {
+        throw new Exception("Ошибка! " . $message . " в компоненте " . get_class($this));
     }
 }
