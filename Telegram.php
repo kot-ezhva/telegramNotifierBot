@@ -20,7 +20,7 @@ class Telegram
         }
     }
 
-    public function sendMessage($message, $dialogIds = [])
+    public function sendMessage($message, $dialogIds = [], $repeatingFlag = false)
     {
         if($this->webhookStatus()) {
             $method = "/sendmessage";
@@ -45,8 +45,8 @@ class Telegram
             }
 
         } else {
-            if($this->setWebhook()) {
-                $this->sendMessage($message, $dialogIds);
+            if($this->setWebhook() && $repeatingFlag == false) {
+                $this->sendMessage($message, $dialogIds, true);
             }
         }
     }
