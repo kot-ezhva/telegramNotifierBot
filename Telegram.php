@@ -119,20 +119,21 @@ class Telegram
         $method = "/setwebhook";
 
         $ch = curl_init($this->fullBotApiUrl . $method);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array("Content-type: multipart/form-data"));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
         curl_setopt($ch, CURLOPT_POSTFIELDS, [
             "url" => $this->webhookUrl,
             "allowed_updates" => [
                 "message"
             ]
         ]);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
         $result = curl_exec($ch);
 
         if ($result) {
             $result = json_decode($result);
 
-            if ($result->result) {
+            if (!empty($result->result)) {
                 $settingStatus = true;
             }
         }
@@ -154,7 +155,11 @@ class Telegram
 
         if ($result) {
             $result = json_decode($result);
-            $url = $result->result->url;
+            $url = false;
+            if(!empty($result->result)) {
+                $url = $result->result->url;
+            }
+
             if ($url && $url == $this->webhookUrl) {
                 $status = true;
             }
