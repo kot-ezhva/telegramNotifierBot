@@ -3,7 +3,7 @@
 class Telegram
 {
     public $botApiUri = "https://api.telegram.org/bot";
-    public $chatIdFilename = __DIR__ . DIRECTORY_SEPARATOR . "chatIds.txt";
+    public $chatIdFilename;
     public $token;
     public $webhookUrl;
     public $password;
@@ -13,6 +13,7 @@ class Telegram
     public function init()
     {
         $this->fullBotApiUrl = $this->botApiUri . $this->token;
+        $this->chatIdFilename = __DIR__ . DIRECTORY_SEPARATOR . "chatIds.txt";
 
         foreach ($this as $key => $value) {
             if($key !== "botCommands") {
@@ -60,6 +61,9 @@ class Telegram
 
     public function webhookHandler()
     {
+        if(!$this->webhookStatus()) {
+            $this->setWebhook();
+        }
         $content = file_get_contents("php://input");
         $update = json_decode($content);
         $message = $update->message;
